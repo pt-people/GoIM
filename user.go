@@ -64,23 +64,23 @@ func (this *User) DoMessage(msg string) {
 	if msg == "who" {
 		this.server.mapLock.Lock()
 		for _, user := range this.server.OnlineMap {
-			onlineMsg := "[" + user.Addr + "]" + user.Name + " 在线..."
+			onlineMsg := "[" + user.Addr + "]" + user.Name + " 在线...\n"
 			this.SendMsg(onlineMsg)
 		}
 		this.server.mapLock.Unlock()
-	} else if msg[:7] == "rename|" && len(msg) > 7 {
+	} else if len(msg) > 7 && msg[:7] == "rename|" {
 		NewName := strings.Split(msg, "|")[1]
 		_, ok := this.server.OnlineMap[NewName]
 		if ok {
 			this.SendMsg("当前用户名已使用")
 		} else {
 			this.server.mapLock.Lock()
+			delete(this.server.OnlineMap, this.Name)
 			this.server.OnlineMap[NewName] = this
-			this.server.mapLock.Unlock()
 			this.Name = NewName
 			this.SendMsg("用户名已更改为:" + this.Name + "\n")
+			this.server.mapLock.Unlock()
 		}
-		this.server.mapLock.Unlock()
 	} else {
 		this.server.BroadCast(this, msg)
 	}
