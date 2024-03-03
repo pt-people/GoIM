@@ -63,22 +63,26 @@ func (this *Server) Handler(conn net.Conn) {
 	// 接受客户端发送的消息
 	go func() {
 		buf := make([]byte, 4096)
-		n, err := conn.Read(buf)
+		for {
+			n, err := conn.Read(buf)
 
-		if n == 0 {
-			user.Offline()
-			return
+			// 用户下线
+			if n == 0 {
+				user.Offline()
+				return
+			}
+
+			// 异常信息
+			if err != nil && err != io.EOF {
+				fmt.Println("Conn Read err:", err)
+				return
+			}
+			// 读取用户的消息 去除\n
+			msg := string(buf[:n-1])
+			// 用户对消息进行广播
+			user.DoMessage(msg)
 		}
 
-		if err != nil && err != io.EOF {
-			fmt.Println("Conn Read err:", err)
-			return
-		}
-		// 读取用户的消息 去除\n
-		msg := string(buf[:n-1])
-
-		// 用户对消息进行广播
-		user.DoMessage(msg)
 	}()
 
 	// 当前handler阻塞
