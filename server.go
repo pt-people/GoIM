@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
-	"io"
 )
 
 type Server struct {
@@ -14,8 +14,8 @@ type Server struct {
 
 	// 在线用户列表
 	OnlineMap map[string]*User
-	mapLock sync.RWMutex
- 
+	mapLock   sync.RWMutex
+
 	//消息广播
 	Message chan string
 }
@@ -23,21 +23,22 @@ type Server struct {
 // 创建一个server的接口
 func NewServer(ip string, port int) *Server {
 	server := &Server{
-		Ip:   ip,
-		Port: port,
+		Ip:        ip,
+		Port:      port,
 		OnlineMap: make(map[string]*User),
-		Message: make(chan string),
+		Message:   make(chan string),
 	}
 	return server
 }
+
 // 监听Message广播消息channel的goroutine,一旦有消息就发送给全部在线用户
-func (this *Server) ListenMessage(){
+func (this *Server) ListenMessage() {
 	for {
-		msg := <- this.Message
+		msg := <-this.Message
 
 		// 将msg发送给全部在线用户
 		this.mapLock.Lock()
-		for _, cli := range this.OnlineMap{
+		for _, cli := range this.OnlineMap {
 			cli.C <- msg
 		}
 		this.mapLock.Unlock()
@@ -45,7 +46,7 @@ func (this *Server) ListenMessage(){
 }
 
 // 广播消息方法
-func (this *Server) BroadCast(user *User, msg string){
+func (this *Server) BroadCast(user *User, msg string) {
 	// 发送的消息
 	sendMsg := "[" + user.Addr + "]" + user.Name + ":" + msg
 	// 将消息放入管道
@@ -55,37 +56,30 @@ func (this *Server) BroadCast(user *User, msg string){
 // 处理方法
 func (this *Server) Handler(conn net.Conn) {
 	// 初始化一个用户
-	user := NewUser(conn)
-
-	//用户上线, 将用户加入到onLineMap中
-	this.mapLock.Lock()
-	this.OnlineMap[user.Name] = user
-	this.mapLock.Unlock()
-
-	// 广播当前用户上线消息
-	this.BroadCast(user, "用户上线 ^_^")
+	user := NewUser(conn, this)
+	// 用户上线
+	user.Online()
 
 	// 接受客户端发送的消息
-	go func(){
+	go func() {
 		buf := make([]byte, 4096)
 		n, err := conn.Read(buf)
 
-		if n == 0{
-			this.BroadCast(user, "下线 QAQ")
+		if n == 0 {
+			user.Offline()
 			return
 		}
 
-		if err != nil && err != io.EOF{
+		if err != nil && err != io.EOF {
 			fmt.Println("Conn Read err:", err)
 			return
 		}
 		// 读取用户的消息 去除\n
 		msg := string(buf[:n-1])
 
-		//将得到的消息进行广播
-		this.BroadCast(user, msg)
+		// 用户对消息进行广播
+		user.DoMessage(msg)
 	}()
-
 
 	// 当前handler阻塞
 	select {}
@@ -102,7 +96,6 @@ func (this *Server) Start() {
 
 	// close listen socket
 	defer listener.Close()
-
 
 	// 启动监听Message的goroutine
 	go this.ListenMessage()
