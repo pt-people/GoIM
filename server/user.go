@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"net"
@@ -94,7 +94,7 @@ func (this *User) DoMessage(msg string) {
 		// 2.根据用户名 得到对方User对象
 		userObject, ok := this.server.OnlineMap[remoteUser]
 		if ok {
-			userObject.SendMsg(this.Name + "对您说:" + message)
+			userObject.SendMsg(this.Name + "对您说:" + message + "\n")
 		} else {
 			this.SendMsg("用户不存在")
 		}
